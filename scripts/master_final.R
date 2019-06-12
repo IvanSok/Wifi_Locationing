@@ -35,7 +35,7 @@ sum(duplicated(training_data))
 sum(duplicated(validation_data))
 
 master_data <- gdata::combine(training_data, validation_data)
-master_data <- master_data %>% mutate(ID = row_number())  #doesn't work
+master_data <- master_data %>% mutate(ID = row_number(master_data))  #doesn't work
 
 factorised <- c("FLOOR", "BUILDINGID", "SPACEID", "RELATIVEPOSITION", "USERID",
                 "PHONEID", "source")
@@ -70,6 +70,15 @@ rm(WAPS_var_training, WAPS_var_validation)
 WAPS <- grep("WAP", names(master_data), value = TRUE)
 
 master_data <- master_data %>% filter(apply(master_data[WAPS], 1, function(x) length(unique(x))) >1)
+
+
+# Rescaling the signal by applying exponential function:
+master_data[grep("WAP", colnames(master_data))] <-
+  apply(master_data[grep("WAP", colnames(master_data))],2,
+        function(x) ifelse(x == -110,yes =  0,no =
+                             ifelse(test = x < -92,yes =  1,no =
+                                      ifelse(test = x > -21,yes =  100,no =
+                                               (-0.0154*x*x)-(0.3794*x)+98.182))))
 
 ###############################################################################
 #3D plot of buildings:
@@ -186,121 +195,95 @@ LONG_B2_RF_Predictions <- predict(LONG_B2_RF, validation_data[validation_data$BU
 LONG_B2_RF_postRes <- postResample(LONG_B2_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 2])
 LONG_B2_RF_postRes #performance
 
-###############################################################################
-# MODELS FOR BUILDING PREDICTION:
 
-# H2O Random Forest:
-
-## Create an H2O cloud 
-h2o.init(
-  nthreads=-1,           
-  max_mem_size = "2G")    
-h2o.removeAll() 
-
-## Load a file from disk
-df1 <- as.h2o(master_data)
-
-#Splits:
-splits <- h2o.splitFrame(df1, c(0.7,0.2), seed=1234)    
+#Adding all predictions for Longitude:
+LONG_PRED_ALL <- c(LONG_B0_RF_Predictions, LONG_B1_RF_Predictions, LONG_B2_RF_Predictions)
+validation_data$LONGITUDE <- 
 
 
-train <- h2o.assign(splits[[1]], "train.hex")   
-valid <- h2o.assign(splits[[2]], "valid.hex")   
-test <- h2o.assign(splits[[3]], "test.hex")     
 
-
-## run our first predictive model
-rf1 <- h2o.randomForest(         ## h2o.randomForest function
-  training_frame = train,        ## the H2O frame for training
-  validation_frame = valid,      ## the H2O frame for validation (not required)
-  x=1:520,                        ## the predictor columns, by column index
-  y = "BUILDINGID",                          ## the target index (what we are predicting)
-  model_id = "rf_covType_v1",
-  keep_cross_validation_predictions = TRUE,
-  ntrees = 100,                  
-  stopping_rounds = 2,           
-  score_each_iteration = T,      ## Predict against training and validation for
-  seed = 1000000,
-  nfolds = 8)                ## Set the random seed so that this can be reproduced.
-
-summary(rf1)                     ## View information about the model.
-
-rf1@model$validation_metrics  
-
-predictions_h2o <- h2o.predict(object = rf1, newdata = df1)
-rf1_perf <- h2o.performance(model = rf1, newdata =  df1)
-rf1_perf 
-
-df2 <- df1
-df2$BUILDINGID <- predictions_h2o[1]
-df2 <- as.data.frame(df2)
 ###############################################################################
 
-# Predicting the floors in each building:
+#Predicting Latitude by building:
 
-buildings <- list()
-buildings <- split(df2, df2$BUILDINGID) #creating a list to store separate buildings
-buildings <- lapply(buildings, as.h2o)
+LAT_B0_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
+                           -SPACEID -RELATIVEPOSITION 
+                           -USERID -PHONEID -TIMESTAMP
+                           -source -StrongWap -StrongRSSI
+                           -BUILDING_FLOOR, data = Building0,
+                           importance = T, maximize = T, method = "rf",
+                           trControl = fitControl, ntree = 100, mtry = 104,
+                           allowParalel = TRUE)
 
-building_number <- c(1,2)
-floor_models <- list()
-for (i in building_number){
-  floor_models[[i]] <- h2o.randomForest(
-    training_frame = buildings[[i]],
-    x = 1:520,
-    y="FLOOR",
-    model_id = "rf_covType_v1",
-    ntrees = 200,
-    stopping_rounds = 2,
-    score_each_iteration = T,
-    seed = 1000000,
-    nfolds = 5
-  )
-  print(floor_models[[i]]@model$cross_validation_metrics_summary)
-}
+save(LAT_B0_RF, file =  "LAT_B0_RF.ra")
+load("LAT_B0_RF.ra")
 
-models <- c(1,2,3)
-floor_models[[3]] <- h2o.gbm(y = "FLOOR", x = 1:520, training_frame = buildings[[3]],
-                             ntrees = 100, max_depth = 3, min_rows = 2,nfolds = 5 , seed = 123)
-print(floor_models[[3]]@model$cross_validation_metrics_summary)
+LAT_B0_RF_Predictions <- predict(LAT_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
+LAT_B0_RF_postRes <- postResample(LAT_B0_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 0])
+LAT_B0_RF_postRes #performance
 
-predictions <- list()
-floor_predictions <- list()
-for (j in models){
-  predictions[[j]] <- h2o.predict(object = floor_models[[j]], newdata = buildings[[j]])
-  floor_predictions[[j]] <- predictions[[j]][1]
-}
+#Building1:
+LAT_B1_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
+                           -SPACEID -RELATIVEPOSITION 
+                           -USERID -PHONEID -TIMESTAMP
+                           -source -StrongWap -StrongRSSI
+                           -BUILDING_FLOOR, data = Building1,
+                           importance = T, maximize = T, method = "rf",
+                           trControl = fitControl, ntree = 100, mtry = 104,
+                           allowParalel = TRUE)
 
-floor_predictions <- lapply(floor_predictions, as.data.frame)
-master_floor_predictions <- lapply(floor_predictions, rbind)
-nrow(master_floor_predictions)
+save(LAT_B1_RF, file =  "LAT_B1_RF.ra")
+load("LAT_B1_RF.ra")
 
-buildings <- lapply(buildings, as.data.frame)
+LAT_B1_RF_Predictions <- predict(LAT_B1_RF, validation_data[validation_data$BUILDINGID == 1,])
+LAT_B1_RF_postRes <- postResample(LAT_B1_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 1])
+LAT_B1_RF_postRes #performance
+
+#Building2:
+LAT_B2_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
+                           -SPACEID -RELATIVEPOSITION 
+                           -USERID -PHONEID -TIMESTAMP
+                           -source -StrongWap -StrongRSSI
+                           -BUILDING_FLOOR, data = Building2,
+                           importance = T, maximize = T, method = "rf",
+                           trControl = fitControl, ntree = 100, mtry = 104,
+                           allowParalel = TRUE)
+
+save(LAT_B2_RF, file =  "LAT_B2_RF.ra")
+load("LAT_B2_RF.ra")
+
+LAT_B2_RF_Predictions <- predict(LAT_B2_RF, validation_data[validation_data$BUILDINGID == 2,])
+LAT_B2_RF_postRes <- postResample(LAT_B2_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 2])
+LAT_B2_RF_postRes #performance
+
+LAT_PRED_ALL <- c(LAT_B0_RF_Predictions, LAT_B1_RF_Predictions, LAT_B2_RF_Predictions)
+
 ###############################################################################
-# Predicting longitude and latitude for each building:
 
-building_id <- c(1,2,3)
-lon_lat <- c("LONGITUDE", "LATITUDE")
-lon_lat_models <- list()
-  
-for (i in building_id){
-  for (j in lon_lat){
-    
-        ## run our first predictive model
-        lon_lat_models[[i]] <- h2o.randomForest(         ## h2o.randomForest function
-          training_frame = buildings[[i]],        ## the H2O frame for training
-          x = 1:520,
-          y = j,                          ## the target index (what we are predicting)
-          model_id = "rf_covType_v1",    ## name the model in H2O
-          ntrees = 200,                  
-          stopping_rounds = 2,           
-          score_each_iteration = T,
-          nfolds = 5,
-          seed = 1000000
-        )                
-    
-        print(paste("Building", i-1, "prediction for", j))
-        print(lon_lat_models[[i]]@model$cross_validation_metrics_summary)
-      
-    }
-}  
+# Predicting floor:
+# Add predicted longitude & latitude to DataValid
+master_data$LATITUDE[master_data$source=="validation_data"] <- LONG_PRED_ALL
+master_data$LONGITUDE[master_data$source=="validation_data"] <- LAT_PRED_ALL
+
+# Split Data before modeling
+master_data_split<-split(master_data, master_data$source)
+list2env(master_data_split, envir=.GlobalEnv)
+rm(master_data_split)
+
+
+FLOOR_BUILDLATLONG_RF<-randomForest(FLOOR~. -SPACEID -RELATIVEPOSITION -USERID -PHONEID 
+                                         -TIMESTAMP -source -HighWAP -HighRSSI -Build_floorID -BUILDINGID -ID, 
+                                         data= DataTrain, 
+                                         importance=T,maximize=T,
+                                         method="rf", trControl=fitControl,
+                                         ntree=100, mtry= 34,allowParalel=TRUE)
+
+save(FLOOR_BUILDLATLONG_RF, file = "FLOOR_BUILDLATLONG_RF.rda")
+
+load("FLOOR_BUILDLATLONG_RF.rda")
+FLOOR_PRED_RF<-predict(FLOOR_BUILDLATLONG_RF, DataValid)
+FLOOR_PRED_RF_Postresamp<-postResample(FLOOR_PRED_RF, data_validation$FLOOR)
+FLOOR_PRED_RF_Postresamp
+
+
+###############################################################################
