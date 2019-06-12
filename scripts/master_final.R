@@ -15,15 +15,15 @@ validation_data <- read.csv("datasets/validationData.csv",header = TRUE, sep = "
                             stringsAsFactors = FALSE, na.strings = c("NA", "-", "?"))
 
 
-attributes(training_data)#List your attributes within your data set.
-summary(training_data) #Prints the min, max, mean, median, and quartiles of each attribute.
-str(training_data) #Displays the structure of your data set.
-names(training_data) #Names your attributes within your data set.
+#attributes(training_data)#List your attributes within your data set.
+#summary(training_data) #Prints the min, max, mean, median, and quartiles of each attribute.
+#str(training_data) #Displays the structure of your data set.
+#names(training_data) #Names your attributes within your data set.
 
-attributes(validation_data)#List your attributes within your data set.
-summary(validation_data) #Prints the min, max, mean, median, and quartiles of each attribute.
-str(validation_data) #Displays the structure of your data set.
-names(validation_data) #Names your attributes within your data set.
+#attributes(validation_data)#List your attributes within your data set.
+#summary(validation_data) #Prints the min, max, mean, median, and quartiles of each attribute.
+#str(validation_data) #Displays the structure of your data set.
+#names(validation_data) #Names your attributes within your data set.
 
 ###############################################################################
 
@@ -31,11 +31,11 @@ names(validation_data) #Names your attributes within your data set.
 training_data <- distinct(training_data)
 validation_data <- distinct(validation_data)
 
-sum(duplicated(training_data))
-sum(duplicated(validation_data))
+#sum(duplicated(training_data))
+#sum(duplicated(validation_data))
 
 master_data <- gdata::combine(training_data, validation_data)
-master_data <- master_data %>% mutate(ID = row_number(master_data))  #doesn't work
+#master_data <- master_data %>% mutate(ID = row_number(master_data))  #doesn't work
 
 factorised <- c("FLOOR", "BUILDINGID", "SPACEID", "RELATIVEPOSITION", "USERID",
                 "PHONEID", "source")
@@ -154,8 +154,8 @@ LONG_B0_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B0_RF, file =  "LONG_B0_RF.ra")
-load("LONG_B0_RF.ra")
+save(LONG_B0_RF, file =  "LONG_B0_RF.rda")
+load("LONG_B0_RF.rda")
 
 LONG_B0_RF_Predictions <- predict(LONG_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
 LONG_B0_RF_postRes <- postResample(LONG_B0_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 0])
@@ -171,8 +171,8 @@ LONG_B1_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B1_RF, file =  "LONG_B1_RF.ra")
-load("LONG_B1_RF.ra")
+save(LONG_B1_RF, file =  "LONG_B1_RF.rda")
+load("LONG_B1_RF.rda")
 
 LONG_B1_RF_Predictions <- predict(LONG_B1_RF, validation_data[validation_data$BUILDINGID == 1,])
 LONG_B1_RF_postRes <- postResample(LONG_B1_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 1])
@@ -188,8 +188,8 @@ LONG_B2_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B2_RF, file =  "LONG_B2_RF.ra")
-load("LONG_B2_RF.ra")
+save(LONG_B2_RF, file =  "LONG_B2_RF.rda")
+load("LONG_B2_RF.rda")
 
 LONG_B2_RF_Predictions <- predict(LONG_B2_RF, validation_data[validation_data$BUILDINGID == 2,])
 LONG_B2_RF_postRes <- postResample(LONG_B2_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 2])
@@ -198,9 +198,6 @@ LONG_B2_RF_postRes #performance
 
 #Adding all predictions for Longitude:
 LONG_PRED_ALL <- c(LONG_B0_RF_Predictions, LONG_B1_RF_Predictions, LONG_B2_RF_Predictions)
-validation_data$LONGITUDE <- 
-
-
 
 ###############################################################################
 
@@ -215,8 +212,8 @@ LAT_B0_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B0_RF, file =  "LAT_B0_RF.ra")
-load("LAT_B0_RF.ra")
+save(LAT_B0_RF, file =  "LAT_B0_RF.rda")
+load("LAT_B0_RF.rda")
 
 LAT_B0_RF_Predictions <- predict(LAT_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
 LAT_B0_RF_postRes <- postResample(LAT_B0_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 0])
@@ -232,8 +229,8 @@ LAT_B1_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B1_RF, file =  "LAT_B1_RF.ra")
-load("LAT_B1_RF.ra")
+save(LAT_B1_RF, file =  "LAT_B1_RF.rda")
+load("LAT_B1_RF.rda")
 
 LAT_B1_RF_Predictions <- predict(LAT_B1_RF, validation_data[validation_data$BUILDINGID == 1,])
 LAT_B1_RF_postRes <- postResample(LAT_B1_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 1])
@@ -249,8 +246,8 @@ LAT_B2_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B2_RF, file =  "LAT_B2_RF.ra")
-load("LAT_B2_RF.ra")
+save(LAT_B2_RF, file =  "LAT_B2_RF.rda")
+load("LAT_B2_RF.rda")
 
 LAT_B2_RF_Predictions <- predict(LAT_B2_RF, validation_data[validation_data$BUILDINGID == 2,])
 LAT_B2_RF_postRes <- postResample(LAT_B2_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 2])
@@ -272,18 +269,22 @@ rm(master_data_split)
 
 
 FLOOR_BUILDLATLONG_RF<-randomForest(FLOOR~. -SPACEID -RELATIVEPOSITION -USERID -PHONEID 
-                                         -TIMESTAMP -source -HighWAP -HighRSSI -Build_floorID -BUILDINGID -ID, 
-                                         data= DataTrain, 
+                                         -TIMESTAMP -source -StrongWap -StrongRSSI -BUILDING_FLOOR -BUILDINGID, 
+                                         data= training_data, 
                                          importance=T,maximize=T,
                                          method="rf", trControl=fitControl,
                                          ntree=100, mtry= 34,allowParalel=TRUE)
 
 save(FLOOR_BUILDLATLONG_RF, file = "FLOOR_BUILDLATLONG_RF.rda")
-
 load("FLOOR_BUILDLATLONG_RF.rda")
-FLOOR_PRED_RF<-predict(FLOOR_BUILDLATLONG_RF, DataValid)
+
+FLOOR_PRED_RF<-predict(FLOOR_BUILDLATLONG_RF, data_validation)
 FLOOR_PRED_RF_Postresamp<-postResample(FLOOR_PRED_RF, data_validation$FLOOR)
 FLOOR_PRED_RF_Postresamp
 
 
 ###############################################################################
+# Stop Parallel process
+stopCluster(cluster)
+rm(cluster)
+registerDoSEQ()
