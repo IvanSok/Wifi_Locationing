@@ -8,7 +8,7 @@ current_path <- getActiveDocumentContext()$path
 setwd(dirname(dirname(current_path)))
 rm(current_path)
 ###############################################################################
-# Importing data:
+# Importing data: ------
 training_data <- read.csv2("datasets/trainingData.csv", header = TRUE, sep = ",",
                            stringsAsFactors = FALSE, na.strings = c("NA", "-", "?"))
 validation_data <- read.csv("datasets/validationData.csv",header = TRUE, sep = ",",
@@ -26,8 +26,7 @@ validation_data <- read.csv("datasets/validationData.csv",header = TRUE, sep = "
 #names(validation_data) #Names your attributes within your data set.
 
 ###############################################################################
-
-# Preprocessing:
+# Preprocessing: -----
 training_data <- distinct(training_data)
 validation_data <- distinct(validation_data)
 
@@ -47,8 +46,7 @@ numerical <- c("LONGITUDE", "LATITUDE")
 master_data[,numerical] <- lapply(master_data[,numerical], as.numeric)
 rm(numerical)
 
-master_data$TIMESTAMP <- as_datetime(master_data$TIMESTAMP, origin = "1970-01-01",
-                                     tz = "UTC")
+
 
 #Organising all WAPS in a vector and rescaling WAP = 100 to WAP = -110
 WAPS <- grep("WAP", names(master_data), value = TRUE )
@@ -72,7 +70,7 @@ WAPS <- grep("WAP", names(master_data), value = TRUE)
 master_data <- master_data %>% filter(apply(master_data[WAPS], 1, function(x) length(unique(x))) >1)
 
 
-# Rescaling the signal by applying exponential function:
+ #Rescaling the signal by applying exponential function:
 master_data[grep("WAP", colnames(master_data))] <-
   apply(master_data[grep("WAP", colnames(master_data))],2,
         function(x) ifelse(x == -110,yes =  0,no =
@@ -81,14 +79,14 @@ master_data[grep("WAP", colnames(master_data))] <-
                                                (-0.0154*x*x)-(0.3794*x)+98.182))))
 
 ###############################################################################
-#3D plot of buildings:
+# 3D plot of buildings: -----
 plot_ly(master_data, x = ~LONGITUDE, y = ~LATITUDE, z = ~FLOOR, color = ~FLOOR, colors = c('#BF382A', '#0C4B8E'), size = 2) %>%
   add_markers() %>%
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Floor')))
 ###############################################################################
-# Feature engineering:
+# Feature engineering:----
 # adding new variables with the strongest WAP and RSSI value:
 master_data <- master_data %>% mutate(StrongWap = NA, StrongRSSI = NA)
 
@@ -102,7 +100,7 @@ master_data$BUILDING_FLOOR <- as.factor(group_indices(master_data, BUILDINGID, F
 
 
 ###############################################################################
-# Train/Test sets:
+# Train/Test sets: ----
 
 master_data_split <- split(master_data, master_data$source)
 list2env(master_data_split, envir = .GlobalEnv)
@@ -121,24 +119,30 @@ fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3,
                            allowParallel = TRUE)
 
 ###############################################################################
-# Building prediction:
-Building_SVM1 <- caret::train(BUILDINGID ~ StrongWap, data = training_data,
-                              method = "svmLinear", trControl = fitControl)
+# Building prediction: ----
 
-save(Building_SVM1, file = "Building_SVM1.rda")
-load("Building_SVM1.rda")
+h2o.init(
+  nthreads=-1,            
+  max_mem_size = "2G")    
+h2o.removeAll() 
 
-Building_pred <- predict(Building_SVM1, data_validation)
-ConfusionMatrix <- confusionMatrix(Building_pred, data_validation$BUILDINGID)
-ConfusionMatrix
-rm(ConfusionMatrix)
+h2o_training <- as.h2o(training_data)
+h2o_validation <- as.h2o(data_validation)
+Building_RF_H2o <- h2o.randomForest( y = "BUILDINGID", x = "StrongWap", training_frame = h2o_training, 
+                                    nfolds = 8, ntrees = 100, max_depth = 30, seed = 123)
+
+save(Building_RF_H2o, file = "Building_RF_H2o.rda")
+load("Building_RF_H2o.rda")
+
+h2o.performance(Building_RF_H2o, h2o_validation)
+Building_RF_H2o_Pred <- h2o.predict(Building_RF_H2o, h2o_validation)
+
 
 # Replacing original buidling id with predicted in validation dataset:
-master_data$BUILDINGID[master_data$source == "validation_data"] <- Building_pred
+master_data$BUILDINGID[master_data$source == "validation_data"] <- Building_RF_H2o_Pred
 
 ###############################################################################
-
-# Predicting Longitude per building:
+# Predicting Longitude per building: ----
 buildings <- split(training_data, training_data$BUILDINGID)
 names(buildings) <- c("Building0", "Building1", "Building2")
 
@@ -200,8 +204,7 @@ LONG_B2_RF_postRes #performance
 LONG_PRED_ALL <- c(LONG_B0_RF_Predictions, LONG_B1_RF_Predictions, LONG_B2_RF_Predictions)
 
 ###############################################################################
-
-#Predicting Latitude by building:
+#Predicting Latitude by building:----
 
 LAT_B0_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
@@ -256,8 +259,7 @@ LAT_B2_RF_postRes #performance
 LAT_PRED_ALL <- c(LAT_B0_RF_Predictions, LAT_B1_RF_Predictions, LAT_B2_RF_Predictions)
 
 ###############################################################################
-
-# Predicting floor:
+# Predicting floor:----
 # Add predicted longitude & latitude to DataValid
 master_data$LATITUDE[master_data$source=="validation_data"] <- LONG_PRED_ALL
 master_data$LONGITUDE[master_data$source=="validation_data"] <- LAT_PRED_ALL
@@ -284,7 +286,34 @@ FLOOR_PRED_RF_Postresamp
 
 
 ###############################################################################
-# Stop Parallel process
+# Stop Parallel process: ----
 stopCluster(cluster)
 rm(cluster)
 registerDoSEQ()
+
+###############################################################################
+# Model Performances:----
+
+h2o.performance(Building_RF_H2o, h2o_validation)
+
+LONG_B0_RF_postRes
+LONG_B1_RF_postRes
+LONG_B2_RF_postRes
+
+LAT_B0_RF_postRes
+LAT_B1_RF_postRes
+LAT_B2_RF_postRes
+
+FLOOR_PRED_RF_Postresamp
+
+
+
+
+
+
+
+training_data[!colnames(training_data) %in% c("LATITUDE", "FLOOR", 
+                  "SPACEID", "RELATIVEPOSITION", 
+                  "USERID", "PHONEID", "TIMESTAMP",
+                  "source", "StrongWap", "StrongRSSI",
+                  "BUILDING_FLOOR")]
