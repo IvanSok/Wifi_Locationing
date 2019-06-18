@@ -79,10 +79,7 @@ master_data[grep("WAP", colnames(master_data))] <-
                                                (-0.0154*x*x)-(0.3794*x)+98.182))))
 
 
-#Checking for the same WAPs in different buildings:
-WAP_BUILDING_TEST <- master_data %>% select(StrongWap, as.numeric(BUILDINGID))
-WAP_BUILDING_TEST %>% dplyr::distinct() %>% group_by(StrongWap) %>% dplyr::summarise(count = n()) %>%
-  filter(count>1)
+
 
 ###############################################################################
 # 3D plot of buildings: -----
@@ -103,6 +100,14 @@ master_data <- master_data %>% mutate(StrongRSSI = apply(master_data[WAPS], 1, m
 
 # Adding BUILDINGID + FLOOR variable:
 master_data$BUILDING_FLOOR <- as.factor(group_indices(master_data, BUILDINGID, FLOOR))
+
+#Checking for the same WAPs in different buildings:
+WAP_BUILDING_TEST <- master_data %>% dplyr::select(StrongWap, BUILDINGID)
+WAP_BUILDING_TEST %>% dplyr::distinct() %>% group_by(StrongWap) %>% dplyr::summarise(count = n()) %>%
+  filter(count>1)
+
+#Remove strongest Waps that appear in multiple buildings:
+master_data$WAP248 <- NULL #this WAP is present in 3 buildings
 
 
 ###############################################################################
