@@ -70,7 +70,7 @@ WAPS <- grep("WAP", names(master_data), value = TRUE)
 master_data <- master_data %>% filter(apply(master_data[WAPS], 1, function(x) length(unique(x))) >1)
 
 
- #Rescaling the signal by applying exponential function:
+#Rescaling the signal by applying exponential function:
 master_data[grep("WAP", colnames(master_data))] <-
   apply(master_data[grep("WAP", colnames(master_data))],2,
         function(x) ifelse(x == -110,yes =  0,no =
@@ -141,6 +141,7 @@ Building_RF_H2o_Pred <- h2o.predict(Building_RF_H2o, h2o_validation)
 # Replacing original buidling id with predicted in validation dataset:
 master_data$BUILDINGID[master_data$source == "validation_data"] <- Building_RF_H2o_Pred
 
+
 ###############################################################################
 # Predicting Longitude per building: ----
 buildings <- split(training_data, training_data$BUILDINGID)
@@ -164,6 +165,7 @@ load("LONG_B0_RF.rda")
 LONG_B0_RF_Predictions <- predict(LONG_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
 LONG_B0_RF_postRes <- postResample(LONG_B0_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 0])
 LONG_B0_RF_postRes #performance
+
 
 #Building1:
 LONG_B1_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR 
@@ -202,6 +204,8 @@ LONG_B2_RF_postRes #performance
 
 #Adding all predictions for Longitude:
 LONG_PRED_ALL <- c(LONG_B0_RF_Predictions, LONG_B1_RF_Predictions, LONG_B2_RF_Predictions)
+
+
 
 ###############################################################################
 #Predicting Latitude by building:----
@@ -306,14 +310,33 @@ LAT_B2_RF_postRes
 
 FLOOR_PRED_RF_Postresamp
 
+###############################################################################
+#3D Plot for comparing real and predicted points: ----
+final_predictions <- data.frame(LONG_PRED_ALL, LAT_PRED_ALL,  FLOOR_PRED_RF, as.data.frame(Building_RF_H2o_Pred[1]) )
+names(final_predictions)[1] <- "LONGITUDE"
+names(final_predictions)[2] <- "LATITUDE"
+names(final_predictions)[3] <- "FLOOR"
+names(final_predictions)[4] <- "BUILDINGID"
+final_predictions["source"] <- "Predicted"
+final_predictions$source <- as.factor(final_predictions$source)
+final_predictions$FLOOR <- as.numeric(final_predictions$FLOOR)
+
+
+final_real <- data_validation[c("LONGITUDE", "LATITUDE", "FLOOR", "BUILDINGID")]
+final_real["source"] <- "Real"
+final_real$source <- as.factor(final_real$source)
+final_real$FLOOR <- as.numeric(final_real$FLOOR)
+
+master_plot <- rbind(final_predictions, final_real)
+rm(final_predictions)
+rm(final_real)
+
+plot_ly(master_plot, x = ~LONGITUDE, y = ~LATITUDE, z = ~FLOOR, color = ~source, colors = c('#BF382A', '#0C4B8E'), size = 0.01) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Longitude'),
+                      yaxis = list(title = 'Latitude'),
+                      zaxis = list(title = 'Floor')))
 
 
 
 
-
-
-training_data[!colnames(training_data) %in% c("LATITUDE", "FLOOR", 
-                  "SPACEID", "RELATIVEPOSITION", 
-                  "USERID", "PHONEID", "TIMESTAMP",
-                  "source", "StrongWap", "StrongRSSI",
-                  "BUILDING_FLOOR")]
