@@ -78,6 +78,12 @@ master_data[grep("WAP", colnames(master_data))] <-
                                       ifelse(test = x > -21,yes =  100,no =
                                                (-0.0154*x*x)-(0.3794*x)+98.182))))
 
+
+#Checking for the same WAPs in different buildings:
+WAP_BUILDING_TEST <- master_data %>% select(StrongWap, as.numeric(BUILDINGID))
+WAP_BUILDING_TEST %>% dplyr::distinct() %>% group_by(StrongWap) %>% dplyr::summarise(count = n()) %>%
+  filter(count>1)
+
 ###############################################################################
 # 3D plot of buildings: -----
 plot_ly(master_data, x = ~LONGITUDE, y = ~LATITUDE, z = ~FLOOR, color = ~FLOOR, colors = c('#BF382A', '#0C4B8E'), size = 2) %>%
