@@ -109,6 +109,8 @@ WAP_BUILDING_TEST %>% dplyr::distinct() %>% group_by(StrongWap) %>% dplyr::summa
 #Remove strongest Waps that appear in multiple buildings:
 master_data$WAP248 <- NULL #this WAP is present in 3 buildings
 
+WAPS <- grep("WAP", names(master_data), value = TRUE)
+
 
 ###############################################################################
 # Train/Test sets: ----
@@ -139,24 +141,24 @@ h2o.removeAll()
 
 h2o_training <- as.h2o(training_data)
 h2o_validation <- as.h2o(data_validation)
-Building_RF_H2o <- h2o.randomForest( y = "BUILDINGID", x = "StrongWap", training_frame = h2o_training, 
+Building_RF_H2o <- h2o.randomForest( y = "BUILDINGID", x = WAPS, training_frame = h2o_training, 
                                     nfolds = 8, ntrees = 100, max_depth = 30, seed = 123)
 
 save(Building_RF_H2o, file = "Building_RF_H2o.rda")
-load("Building_RF_H2o.rda")
+#load("Building_RF_H2o.rda")
 
 h2o.performance(Building_RF_H2o, h2o_validation)
 Building_RF_H2o_Pred <- h2o.predict(Building_RF_H2o, h2o_validation)
 
 
-# Replacing original buidling id with predicted in validation dataset:
-master_data$BUILDINGID[master_data$source == "validation_data"] <- Building_RF_H2o_Pred
+# Replacing original building id with predicted in validation dataset:
+master_data$BUILDINGID[master_data$source == "validation_data"] <- as.data.frame(Building_RF_H2o_Pred)
 
 
 ###############################################################################
 # Predicting Longitude per building: ----
 buildings <- split(training_data, training_data$BUILDINGID)
-names(buildings) <- c("Building0", "Building1", "Building2")
+#names(buildings) <- c("Building0", "Building1", "Building2")
 
 list2env(buildings, envir = .GlobalEnv)
 
@@ -164,14 +166,14 @@ list2env(buildings, envir = .GlobalEnv)
 LONG_B0_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
                            -USERID -PHONEID -TIMESTAMP
-                           -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building0,
+                           -source -StrongWap -StrongRSSI -BUILDINGID
+                           -BUILDING_FLOOR, data = buildings$"0",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B0_RF, file =  "LONG_B0_RF.rda")
-load("LONG_B0_RF.rda")
+#save(LONG_B0_RF, file =  "LONG_B0_RF.rda")
+#load("LONG_B0_RF.rda")
 
 LONG_B0_RF_Predictions <- predict(LONG_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
 LONG_B0_RF_postRes <- postResample(LONG_B0_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 0])
@@ -182,14 +184,14 @@ LONG_B0_RF_postRes #performance
 LONG_B1_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
                            -USERID -PHONEID -TIMESTAMP
-                           -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building1,
+                           -source -StrongWap -StrongRSSI -BUILDINGID
+                           -BUILDING_FLOOR, data = buildings$"1",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B1_RF, file =  "LONG_B1_RF.rda")
-load("LONG_B1_RF.rda")
+#save(LONG_B1_RF, file =  "LONG_B1_RF.rda")
+#load("LONG_B1_RF.rda")
 
 LONG_B1_RF_Predictions <- predict(LONG_B1_RF, validation_data[validation_data$BUILDINGID == 1,])
 LONG_B1_RF_postRes <- postResample(LONG_B1_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 1])
@@ -198,15 +200,15 @@ LONG_B1_RF_postRes #performance
 #Building2:
 LONG_B2_RF <- randomForest(LONGITUDE~. -LATITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
-                           -USERID -PHONEID -TIMESTAMP
+                           -USERID -PHONEID -TIMESTAMP -BUILDINGID
                            -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building2,
+                           -BUILDING_FLOOR, data = buildings$"2",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LONG_B2_RF, file =  "LONG_B2_RF.rda")
-load("LONG_B2_RF.rda")
+#save(LONG_B2_RF, file =  "LONG_B2_RF.rda")
+#load("LONG_B2_RF.rda")
 
 LONG_B2_RF_Predictions <- predict(LONG_B2_RF, validation_data[validation_data$BUILDINGID == 2,])
 LONG_B2_RF_postRes <- postResample(LONG_B2_RF_Predictions, data_validation$LONGITUDE[data_validation$BUILDINGID == 2])
@@ -224,14 +226,14 @@ LONG_PRED_ALL <- c(LONG_B0_RF_Predictions, LONG_B1_RF_Predictions, LONG_B2_RF_Pr
 LAT_B0_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
                            -USERID -PHONEID -TIMESTAMP
-                           -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building0,
+                           -source -StrongWap -StrongRSSI -BUILDINGID
+                           -BUILDING_FLOOR, data = buildings$"0",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B0_RF, file =  "LAT_B0_RF.rda")
-load("LAT_B0_RF.rda")
+#save(LAT_B0_RF, file =  "LAT_B0_RF.rda")
+#load("LAT_B0_RF.rda")
 
 LAT_B0_RF_Predictions <- predict(LAT_B0_RF, validation_data[validation_data$BUILDINGID == 0,])
 LAT_B0_RF_postRes <- postResample(LAT_B0_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 0])
@@ -241,14 +243,14 @@ LAT_B0_RF_postRes #performance
 LAT_B1_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
                            -USERID -PHONEID -TIMESTAMP
-                           -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building1,
+                           -source -StrongWap -StrongRSSI -BUILDINGID
+                           -BUILDING_FLOOR, data = buildings$"1",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B1_RF, file =  "LAT_B1_RF.rda")
-load("LAT_B1_RF.rda")
+#save(LAT_B1_RF, file =  "LAT_B1_RF.rda")
+#load("LAT_B1_RF.rda")
 
 LAT_B1_RF_Predictions <- predict(LAT_B1_RF, validation_data[validation_data$BUILDINGID == 1,])
 LAT_B1_RF_postRes <- postResample(LAT_B1_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 1])
@@ -258,14 +260,14 @@ LAT_B1_RF_postRes #performance
 LAT_B2_RF <- randomForest(LATITUDE~. -LONGITUDE -FLOOR 
                            -SPACEID -RELATIVEPOSITION 
                            -USERID -PHONEID -TIMESTAMP
-                           -source -StrongWap -StrongRSSI
-                           -BUILDING_FLOOR, data = Building2,
+                           -source -StrongWap -StrongRSSI -BUILDINGID
+                           -BUILDING_FLOOR, data = buildings$"2",
                            importance = T, maximize = T, method = "rf",
                            trControl = fitControl, ntree = 100, mtry = 104,
                            allowParalel = TRUE)
 
-save(LAT_B2_RF, file =  "LAT_B2_RF.rda")
-load("LAT_B2_RF.rda")
+#save(LAT_B2_RF, file =  "LAT_B2_RF.rda")
+#load("LAT_B2_RF.rda")
 
 LAT_B2_RF_Predictions <- predict(LAT_B2_RF, validation_data[validation_data$BUILDINGID == 2,])
 LAT_B2_RF_postRes <- postResample(LAT_B2_RF_Predictions, data_validation$LATITUDE[data_validation$BUILDINGID == 2])
@@ -292,8 +294,8 @@ FLOOR_BUILDLATLONG_RF<-randomForest(FLOOR~. -SPACEID -RELATIVEPOSITION -USERID -
                                          method="rf", trControl=fitControl,
                                          ntree=100, mtry= 34,allowParalel=TRUE)
 
-save(FLOOR_BUILDLATLONG_RF, file = "FLOOR_BUILDLATLONG_RF.rda")
-load("FLOOR_BUILDLATLONG_RF.rda")
+#save(FLOOR_BUILDLATLONG_RF, file = "FLOOR_BUILDLATLONG_RF.rda")
+#load("FLOOR_BUILDLATLONG_RF.rda")
 
 FLOOR_PRED_RF<-predict(FLOOR_BUILDLATLONG_RF, data_validation)
 FLOOR_PRED_RF_Postresamp<-postResample(FLOOR_PRED_RF, data_validation$FLOOR)
@@ -302,9 +304,9 @@ FLOOR_PRED_RF_Postresamp
 
 ###############################################################################
 # Stop Parallel process: ----
-stopCluster(cluster)
-rm(cluster)
-registerDoSEQ()
+#stopCluster(cluster)
+#rm(cluster)
+#registerDoSEQ()
 
 ###############################################################################
 # Model Performances:----
@@ -347,6 +349,123 @@ plot_ly(master_plot, x = ~LONGITUDE, y = ~LATITUDE, z = ~FLOOR, color = ~source,
   layout(scene = list(xaxis = list(title = 'Longitude'),
                       yaxis = list(title = 'Latitude'),
                       zaxis = list(title = 'Floor')))
+
+
+
+######################################################################
+######################################################################
+######################################################################
+# Final testing:
+
+test_data <- read.csv("datasets/testData.csv")
+
+test_data$ID <- c(1:nrow(test_data))
+
+
+WAPS <- grep("WAP", names(test_data), value = TRUE )
+test_data[, WAPS] <- sapply(test_data[, WAPS], function(x) ifelse(x==100, -110, x)) #if x = 100 then it changes to -100, if x is not equal to 100, then it just stays as x
+
+
+#Rescaling the signal by applying exponential function:
+test_data[grep("WAP", colnames(test_data))] <-
+  apply(test_data[grep("WAP", colnames(test_data))],2,
+        function(x) ifelse(x == -110,yes =  0,no =
+                             ifelse(test = x < -92,yes =  1,no =
+                                      ifelse(test = x > -21,yes =  100,no =
+                                               (-0.0154*x*x)-(0.3794*x)+98.182))))
+
+
+######################################################################
+# Feature engineering:----
+# adding new variables with the strongest WAP and RSSI value:
+test_data <- test_data %>% mutate(StrongWap = NA, StrongRSSI = NA, source = 0)
+
+test_data <- test_data %>% mutate(StrongWap = colnames(test_data[WAPS])[apply(test_data[WAPS], 1, which.max)])
+test_data$StrongWap <- as.factor(test_data$StrongWap)
+
+test_data <- test_data %>% mutate(StrongRSSI = apply(test_data[WAPS], 1, max))
+
+test_data$BUILDING_FLOOR <- as.factor(group_indices(test_data, BUILDINGID, FLOOR))
+
+#Checking for the same WAPs in different buildings:
+#WAP_BUILDING_TEST <- master_data %>% dplyr::select(StrongWap, BUILDINGID)
+#WAP_BUILDING_TEST %>% dplyr::distinct() %>% group_by(StrongWap) %>% dplyr::summarise(count = n()) %>%
+#  filter(count>1)
+
+#Remove strongest Waps that appear in multiple buildings:
+#master_data$WAP248 <- NULL #this WAP is present in 3 buildings
+
+######################################################################
+#BUILDINGID Testing:
+test_data_h2o <- as.h2o(test_data)
+
+Building_model <- h2o.predict(Building_RF_H2o, test_data_h2o )
+test_data$BUILDINGID <- as.data.frame(Building_model)$predict
+
+test_data$BUILDINGID <- as.character(test_data$BUILDINGID)
+test_data$BUILDINGID <- revalue(test_data$BUILDINGID, c( "0" = "B0", "1" = "B1", "2" = "B2"))
+
+test_data$BUILDINGID <- as.factor(test_data$BUILDINGID)
+building_set <- split(test_data, test_data$BUILDINGID)
+
+list2env(building_set, envir = .GlobalEnv)
+######################################################################
+
+
+LONG_B0_Predictions <- predict(LONG_B0_RF, test_data[test_data$BUILDINGID == "B0", ])
+building_set$B0$LONGITUDE <- LONG_B0_Predictions
+
+LONG_B1_Predictions <- predict(LONG_B1_RF, test_data[test_data$BUILDINGID == "B1",])
+building_set$B1$LONGITUDE <- LONG_B1_Predictions
+
+LONG_B2_Predictions <- predict(LONG_B2_RF, test_data[test_data$BUILDINGID == "B2",])
+building_set$B2$LONGITUDE <- LONG_B2_Predictions
+
+#LONG_PRED <- c(LONG_B0_Predictions, LONG_B1_Predictions, LONG_B2_Predictions)
+######################################################################
+
+
+LAT_B0_Predictions <- predict(LAT_B0_RF, test_data[test_data$BUILDINGID == "B0",])
+building_set$B0$LATITUDE <- LAT_B0_Predictions
+
+LAT_B1_Predictions <- predict(LAT_B1_RF, test_data[test_data$BUILDINGID == "B1",])
+building_set$B1$LATITUDE <- LAT_B1_Predictions
+
+LAT_B2_Predictions <- predict(LAT_B2_RF, test_data[test_data$BUILDINGID == "B2",])
+building_set$B2$LATITUDE <- LAT_B2_Predictions
+
+#LAT_PRED <- c(LAT_B0_Predictions, LAT_B1_Predictions, LAT_B2_Predictions)
+######################################################################
+
+#test_data$LONGITUDE <- LONG_PRED
+#test_data$LATITUDE <- LAT_PRED
+testing_df <- bind_rows(building_set)
+FLOOR_PRED<-predict(FLOOR_BUILDLATLONG_RF, testing_df)
+
+testing_df$FLOOR <- FLOOR_PRED
+
+######################################################################
+#3D Plot for comparing real and predicted points: ----
+final_predictions <- data.frame(LONGITUDE = testing_df$LONGITUDE,LATITUDE = testing_df$LATITUDE,  FLOOR = testing_df$FLOOR, BUILDINGID = testing_df$BUILDINGID )
+
+
+final_predictions$FLOOR <- as.numeric(final_predictions$FLOOR)
+
+
+
+
+plot_ly(final_predictions, x = ~LONGITUDE, y = ~LATITUDE, z = ~FLOOR, color = ~BUILDINGID, size = 0.01) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Longitude'),
+                      yaxis = list(title = 'Latitude'),
+                      zaxis = list(title = 'Floor')))
+
+
+final_predictions_csv <- testing_df[c("LONGITUDE", "LATITUDE", "FLOOR")]
+
+write.csv(final_predictions_csv, "final_predictions.csv")
+
+
 
 
 
